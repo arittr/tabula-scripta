@@ -1,0 +1,21 @@
+{
+    "name": "tabula-scripta",
+    "description": "Marketplace for Tabula Scripta plugin",
+    "owner": {
+      "name": "Drew Ritter",
+      "email": "drew@ritter.dev"
+    },
+    "plugins": [
+      {
+        "name": "tabula-scripta",
+        "description": "Tabula Scripta plugin for working memory system",
+        "version": "0.1.0",
+        "source": "./",
+        "author": {
+          "name": "Drew Ritter",
+          "email": "drew@ritter.dev"
+        }
+      }
+    ]
+  }
+  

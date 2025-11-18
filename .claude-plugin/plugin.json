@@ -1,25 +1,14 @@
 {
   "name": "tabula-scripta",
-  "version": "0.1.0",
   "description": "Working memory system for Claude Code - integrates with Obsidian via MCP for persistent, cross-session memory management",
-  "author": "drewritter",
+  "version": "0.1.0",
+  "author": {
+    "name": "Drew Ritter",
+    "email": "drew@ritter.dev"
+  },
+  "homepage": "https://github.com/arittr/tabula-scripta",
+  "repository": "https://github.com/arittr/tabula-scripta",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/drewritter/tabula-scripta"
-  },
-  "requires": {
-    "mcp": {
-      "obsidian-mcp-plugin": {
-        "description": "Obsidian MCP server for vault operations",
-        "url": "https://github.com/aaronsb/obsidian-mcp-plugin",
-        "required": true
-      }
-    }
-  },
-  "engine": {
-    "claudeCode": ">=1.0.0"
-  },
   "keywords": [
     "memory",
     "obsidian",

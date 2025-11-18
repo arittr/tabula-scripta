@@ -1,9 +1,9 @@
 #!/bin/bash
 
 ###############################################################################
-# Update version number in plugin.json
+# Update version numbers in .claude-plugin/*.json files
 # Usage: ./scripts/update-version.sh <version>
-# Example: ./scripts/update-version.sh 0.2.0
+# Example: ./scripts/update-version.sh 1.2.2
 ###############################################################################
 
 set -e  # Exit on error
@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 if [ -z "$1" ]; then
   echo -e "${RED}Error: Version number required${NC}"
   echo "Usage: $0 <version>"
-  echo "Example: $0 0.2.0"
+  echo "Example: $0 1.2.2"
   exit 1
 fi
 
@@ -27,7 +27,7 @@ VERSION="$1"
 # Validate version format (basic semver check)
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$ ]]; then
   echo -e "${RED}Error: Invalid version format${NC}"
-  echo "Version should follow semver format (e.g., 0.2.0 or 1.0.0-beta.1)"
+  echo "Version should follow semver format (e.g., 1.2.3 or 1.2.3-beta.1)"
   exit 1
 fi
 
@@ -51,18 +51,38 @@ PLUGIN_JSON="$PROJECT_ROOT/.claude-plugin/plugin.json"
 if [ -f "$PLUGIN_JSON" ]; then
   # Create backup
   cp "$PLUGIN_JSON" "$PLUGIN_JSON.bak"
-
+  
   # Update version using jq
   jq --arg version "$VERSION" '.version = $version' "$PLUGIN_JSON" > "$PLUGIN_JSON.tmp"
   mv "$PLUGIN_JSON.tmp" "$PLUGIN_JSON"
-
+  
   # Remove backup if successful
   rm "$PLUGIN_JSON.bak"
-
+  
   echo -e "${GREEN}✓${NC} Updated .claude-plugin/plugin.json"
 else
   echo -e "${RED}✗${NC} File not found: $PLUGIN_JSON"
   exit 1
 fi
 
+# Update marketplace.json
+MARKETPLACE_JSON="$PROJECT_ROOT/.claude-plugin/marketplace.json"
+if [ -f "$MARKETPLACE_JSON" ]; then
+  # Create backup
+  cp "$MARKETPLACE_JSON" "$MARKETPLACE_JSON.bak"
+  
+  # Update version using jq (update version in plugins[0])
+  jq --arg version "$VERSION" '.plugins[0].version = $version' "$MARKETPLACE_JSON" > "$MARKETPLACE_JSON.tmp"
+  mv "$MARKETPLACE_JSON.tmp" "$MARKETPLACE_JSON"
+  
+  # Remove backup if successful
+  rm "$MARKETPLACE_JSON.bak"
+  
+  echo -e "${GREEN}✓${NC} Updated .claude-plugin/marketplace.json"
+else
+  echo -e "${RED}✗${NC} File not found: $MARKETPLACE_JSON"
+  exit 1
+fi
+
 echo -e "\n${GREEN}✅ Version ${VERSION} updated successfully${NC}"
+
