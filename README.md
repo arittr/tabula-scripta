@@ -1,13 +1,13 @@
 # Tabula Scripta
 
->[!WARNING]
->early alpha!
-
 > Working memory for Claude Code - never lose context between sessions
 
 [![Install](https://img.shields.io/badge/install-arittr%2Ftabula--scripta-5B3FFF?logo=claude)](https://github.com/arittr/tabula-scripta#installation--quick-start)
 [![Version](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/arittr/tabula-scripta/main/.claude-plugin/plugin.json&label=version&query=$.version&color=orange)](https://github.com/arittr/tabula-scripta/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+>[!WARNING]
+>early alpha!
 
 Tabula Scripta is a Claude Code plugin that gives Claude persistent, cross-session memory by integrating with Obsidian via the Model Context Protocol (MCP). Think of it as Claude's external brain - automatically capturing decisions, patterns, and context so you never have to repeat yourself.
 
