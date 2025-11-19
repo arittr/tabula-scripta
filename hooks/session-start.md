@@ -1,14 +1,27 @@
-# Session Start Hook
+# MANDATORY SESSION START PROTOCOL
 
-This hook runs automatically when a Claude Code session starts, providing proactive recall of relevant context from previous sessions.
+**YOU MUST execute these steps BEFORE responding to the user's first message.**
 
-## Overview
+## Why This Matters
 
-**Purpose:** Load relevant working memory at session start without requiring manual search
+Without loading memory proactively, you will:
+- Lose context from previous sessions
+- Repeat solved problems
+- Miss important decisions and open questions
+- Waste user's time re-establishing context
 
-**Performance Target:** <2 seconds total recall time
+## The Iron Law
 
-**User Experience:** 1-3 sentence summary (not overwhelming), with option to request more context
+```
+LOAD MEMORY FIRST, RESPOND TO USER SECOND
+```
+
+No exceptions. Execute the protocol below, THEN respond to whatever the user asked.
+
+## Required Protocol (Execute in Order)
+
+**Performance Target:** <2 seconds total
+**User Experience:** 1-3 sentence summary, then respond to their message
 
 ## Implementation
 
@@ -31,9 +44,14 @@ This hook runs automatically when a Claude Code session starts, providing proact
 
 1. Construct the project index path: `claude/projects/{projectContext}/_index.md`
 
-2. Attempt to load the project index using MCP `read_note`:
-   - vault: `~/.claude-memory`
-   - path: The project index path
+2. Attempt to load the project index using MCP vault tool:
+   ```javascript
+   mcp__obsidian-vault__vault({
+     action: "read",
+     path: `claude/projects/${projectContext}/_index.md`,
+     returnFullFile: true
+   })
+   ```
 
 3. If successful:
    - Extract wikilinks from the index content
@@ -61,20 +79,59 @@ This hook runs automatically when a Claude Code session starts, providing proact
    - Sort: created DESC (most recent first)
    - Limit: 3
 
-2. Invoke MCP `dataview_query` with the constructed query
+2. Invoke MCP bases tool to query sessions:
+   ```javascript
+   mcp__obsidian-vault__bases({
+     action: "query",
+     filters: [
+       { property: "status", operator: "in", value: ["active", "archived"] }
+     ],
+     sort: { property: "created", order: "desc" },
+     pagination: { page: 1, pageSize: 3 }
+   })
+   ```
 
-3. For each returned session path, load the full content using MCP `read_note` in parallel
+   Note: If Dataview base not configured, falls back to search (see fallback below)
+
+3. For each returned session path, load the full content in parallel:
+   ```javascript
+   mcp__obsidian-vault__vault({
+     action: "read",
+     path: sessionPath,
+     returnFullFile: true
+   })
+   ```
 
 4. Handle errors:
 
-   **If DataviewNotInstalled:**
-   - Fallback to MCP `search_notes` with:
-     - query: "*" (match all)
-     - path_filter: `claude/projects/{projectContext}/sessions/**`
-   - Manually sort results by created date (descending)
-   - Take top 3 results
+   **If Dataview base not available:**
+   - Fallback to list and filter approach:
+     ```javascript
+     // List all session files
+     const listResult = await mcp__obsidian-vault__vault({
+       action: "list",
+       directory: `claude/projects/${projectContext}/sessions`
+     });
 
-**Fallback Strategy:** If Dataview unavailable, use `search_notes` with path filtering and manual sorting by created date.
+     // Load frontmatter for each in parallel
+     const sessions = await Promise.all(
+       listResult.result.map(async path => {
+         const r = await mcp__obsidian-vault__vault({
+           action: "read",
+           path: path
+         });
+         return { path, frontmatter: r.result.frontmatter };
+       })
+     );
+
+     // Filter and sort
+     const recent = sessions
+       .filter(s => s.frontmatter.status === 'active' || s.frontmatter.status === 'archived')
+       .sort((a, b) => b.frontmatter.created.localeCompare(a.frontmatter.created))
+       .slice(0, 3);
+     ```
+
+**Fallback Strategy:** If Dataview base unavailable, use list + filter approach with frontmatter sorting.
 
 ### 4. Load Linked Entities
 
@@ -84,10 +141,21 @@ This hook runs automatically when a Claude Code session starts, providing proact
 
 3. For each entity (in parallel):
    - First attempt: Try to load from project entities path:
-     `claude/projects/{projectContext}/entities/{entityName}.md`
-   - If not found: Try global entities path:
-     `claude/global/entities/{entityName}.md`
-   - Use MCP `read_note` for both attempts
+     ```javascript
+     mcp__obsidian-vault__vault({
+       action: "read",
+       path: `claude/projects/${projectContext}/entities/${entityName}.md`,
+       returnFullFile: true
+     })
+     ```
+   - If not found (error.message includes "not found"): Try global entities path:
+     ```javascript
+     mcp__obsidian-vault__vault({
+       action: "read",
+       path: `claude/global/entities/${entityName}.md`,
+       returnFullFile: true
+     })
+     ```
 
 4. Collect all successfully loaded entities
 
@@ -166,6 +234,31 @@ User: "What did we work on last session?"
 
 Claude: Loads full content of last session note and summarizes
 ```
+
+## Red Flags - STOP and Execute Protocol
+
+If you catch yourself thinking ANY of these thoughts, STOP. Execute the memory loading protocol FIRST:
+
+- "User seems urgent, I'll respond immediately"
+- "Their question is simple, I don't need memory"
+- "I'll load memory if they specifically ask for it"
+- "Let me respond quickly, memory later"
+- "They just asked 'what do u remember' - that's different"
+- "I can see the git history, that's good enough"
+- "This is just a greeting, skip the protocol"
+
+**ALL of these mean:** Stop. Execute the MANDATORY SESSION START PROTOCOL. THEN respond.
+
+## Common Rationalizations (Don't Do These)
+
+| Excuse | Reality |
+|--------|---------|
+| "User seems urgent, respond immediately" | Protocol takes <2 seconds. User benefits from context. |
+| "Question is simple, don't need memory" | You don't know what's simple without loading context. |
+| "I'll load if they ask for it" | Proactive loading IS the feature. Don't make user ask. |
+| "Git history is good enough" | Git shows files, not decisions/questions/context. Load memory. |
+| "This is just a greeting" | Every session starts with greeting. Still load memory. |
+| "They said 'what do u remember'" | That's still a first message. Execute protocol FIRST. |
 
 ## Error Handling and Recovery
 
@@ -312,7 +405,14 @@ To avoid repeated MCP calls during the session:
 2. When loading a note:
    - Check if already in cache
    - If in cache: Return cached version
-   - If not in cache: Load via MCP `read_note` and store in cache
+   - If not in cache: Load via MCP vault tool and store in cache
+     ```javascript
+     mcp__obsidian-vault__vault({
+       action: "read",
+       path: notePath,
+       returnFullFile: true
+     })
+     ```
 
 3. Cache persists for session duration only (cleared on exit)
 
@@ -324,11 +424,17 @@ To avoid repeated MCP calls during the session:
 
 1. For each loaded note:
    - Set frontmatter.claude_last_accessed to current date (YYYY-MM-DD)
-   - Update the note using MCP `update_note` with:
-     - vault: `~/.claude-memory`
-     - path: The note path
-     - content: Unchanged
-     - frontmatter: Updated frontmatter
+   - Update the note using MCP edit tool (efficient patch):
+     ```javascript
+     mcp__obsidian-vault__edit({
+       action: "patch",
+       path: notePath,
+       targetType: "frontmatter",
+       target: "claude_last_accessed",
+       operation: "replace",
+       content: new Date().toISOString().split('T')[0]  // YYYY-MM-DD
+     })
+     ```
 
 **Cross-Project Tracking:** If loading entity from different project, log cross-project recall:
 

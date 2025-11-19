@@ -21,9 +21,14 @@ This hook runs automatically when a Claude Code session ends, handling session n
    - Infer session topic from work log or user input
    - Construct path: `claude/projects/{projectContext}/sessions/{date}-{topic}.md`
 
-3. Attempt to load the session note using MCP `read_note`:
-   - vault: `~/.claude-memory`
-   - path: The constructed session path
+3. Attempt to load the session note using MCP vault tool:
+   ```javascript
+   mcp__obsidian-vault__vault({
+     action: "read",
+     path: `claude/projects/${projectContext}/sessions/${date}-${topic}.md`,
+     returnFullFile: true
+   })
+   ```
 
 4. Handle different cases:
 
@@ -50,11 +55,34 @@ This hook runs automatically when a Claude Code session ends, handling session n
    - Set updated to current date (YYYY-MM-DD)
    - Set claude_last_accessed to current date
 
-3. Write the final update using MCP `update_note`:
-   - vault: `~/.claude-memory`
-   - path: The session path
-   - content: Updated content with closing entry
-   - frontmatter: Updated frontmatter
+3. Write the final update using MCP vault tool:
+   ```javascript
+   mcp__obsidian-vault__vault({
+     action: "update",
+     path: sessionPath,
+     content: updatedContentWithFrontmatter
+   })
+   ```
+
+   Or use edit tool for efficient append:
+   ```javascript
+   // Append closing entry
+   mcp__obsidian-vault__edit({
+     action: "append",
+     path: sessionPath,
+     content: `\n### ${timestamp} - Session End\n\nSession completed. Work finalized.`
+   });
+
+   // Update frontmatter
+   mcp__obsidian-vault__edit({
+     action: "patch",
+     path: sessionPath,
+     targetType: "frontmatter",
+     target: "updated",
+     operation: "replace",
+     content: new Date().toISOString().split('T')[0]
+   });
+   ```
 
 4. Proceed to check compaction threshold (next step)
 
@@ -80,7 +108,17 @@ This hook runs automatically when a Claude Code session ends, handling session n
 5. If both thresholds are not exceeded:
    - Display: "Session note below threshold ({lineCount} lines, {ageInDays} days old). Keeping active."
    - Mark session status as "active" in frontmatter
-   - Update the note using MCP `update_note`
+   - Update the note using MCP edit tool:
+     ```javascript
+     mcp__obsidian-vault__edit({
+       action: "patch",
+       path: sessionPath,
+       targetType: "frontmatter",
+       target: "status",
+       operation: "replace",
+       content: "active"
+     })
+     ```
 
 **Threshold Rules:**
 - **500 lines:** Session note becomes too large to navigate efficiently
@@ -137,23 +175,48 @@ For each extracted piece of knowledge:
 1. Determine the target entity note path:
    - `claude/projects/{projectContext}/entities/{entityName}.md`
 
-2. Attempt to load the existing entity using MCP `read_note`
+2. Attempt to load the existing entity using MCP vault tool:
+   ```javascript
+   const loadResult = await mcp__obsidian-vault__vault({
+     action: "read",
+     path: `claude/projects/${projectContext}/entities/${entityName}.md`,
+     returnFullFile: true
+   });
+   ```
 
-3. Store the loaded timestamp for conflict detection
+3. Store the loaded content for conflict detection
 
-4. Apply patch operation based on knowledge type:
+4. Apply patch operation based on knowledge type (using efficient edit tool):
    - **Decision:** Append to "## Key Decisions" section
+     ```javascript
+     mcp__obsidian-vault__edit({
+       action: "patch",
+       path: entityPath,
+       targetType: "heading",
+       target: "Key Decisions",
+       operation: "append",
+       content: `\n- ${date}: ${decisionText}`
+     })
+     ```
    - **Gotcha:** Append to "## Gotchas & Troubleshooting" section
    - **Reference:** Append to "## Recent Changes" section
 
 5. Before writing, reload the entity and check for conflicts:
-   - Compare loaded timestamp with current timestamp
+   - Compare loaded content with current content
    - If conflict detected, trigger conflict resolution
    - If no conflict, proceed with update
 
-6. Update entity using MCP `update_note` with:
-   - Updated content
-   - Updated frontmatter (timestamps)
+6. Update frontmatter timestamps:
+   ```javascript
+   mcp__obsidian-vault__edit({
+     action: "patch",
+     path: entityPath,
+     targetType: "frontmatter",
+     target: "updated",
+     operation: "replace",
+     content: new Date().toISOString().split('T')[0]
+   })
+   ```
 
 7. Display: "Updated [[{entityName}]] with knowledge from session."
 
@@ -179,11 +242,14 @@ For each extracted piece of knowledge:
 
 3. Ensure archive directory exists (create if needed)
 
-4. Copy session note to archive location using MCP `create_note`:
-   - vault: `~/.claude-memory`
-   - path: The archive path
-   - content: Session note content
-   - frontmatter: Updated frontmatter with archived status
+4. Copy session note to archive location using MCP vault tool:
+   ```javascript
+   mcp__obsidian-vault__vault({
+     action: "create",
+     path: `claude/projects/${projectContext}/archive/sessions/${filename}`,
+     content: sessionContentWithArchivedFrontmatter
+   })
+   ```
 
 5. Verify archive was successful by attempting to read the archived note
 
@@ -213,7 +279,14 @@ For each entity that was updated during compaction:
 1. Determine the entity path:
    - `claude/projects/{projectContext}/entities/{entityName}.md`
 
-2. Load the entity using MCP `read_note`
+2. Load the entity using MCP vault tool:
+   ```javascript
+   mcp__obsidian-vault__vault({
+     action: "read",
+     path: `claude/projects/${projectContext}/entities/${entityName}.md`,
+     returnFullFile: true
+   })
+   ```
 
 3. Create a backlink to the archived session:
    - Format: `- [[{session-filename}]] - Archived session (compacted)`
@@ -224,7 +297,28 @@ For each entity that was updated during compaction:
 5. Update the entity frontmatter:
    - Set updated to current date
 
-6. Write the updated entity using MCP `update_note`
+6. Write the updated entity using MCP edit tool:
+   ```javascript
+   // Append backlink to References section
+   mcp__obsidian-vault__edit({
+     action: "patch",
+     path: entityPath,
+     targetType: "heading",
+     target: "References",
+     operation: "append",
+     content: `\n- [[${sessionFilename}]] - Archived session (compacted)`
+   });
+
+   // Update frontmatter
+   mcp__obsidian-vault__edit({
+     action: "patch",
+     path: entityPath,
+     targetType: "frontmatter",
+     target: "updated",
+     operation: "replace",
+     content: new Date().toISOString().split('T')[0]
+   });
+   ```
 
 This creates bidirectional links between archived sessions and the entities they contributed to.
 
@@ -290,7 +384,26 @@ When compaction fails for any reason:
 4. Mark session with error status:
    - Set frontmatter.status = "compaction_failed"
    - Add frontmatter.error = error message
-   - Update note using MCP `update_note`
+   - Update note using MCP edit tool:
+     ```javascript
+     mcp__obsidian-vault__edit({
+       action: "patch",
+       path: sessionPath,
+       targetType: "frontmatter",
+       target: "status",
+       operation: "replace",
+       content: "compaction_failed"
+     });
+
+     mcp__obsidian-vault__edit({
+       action: "patch",
+       path: sessionPath,
+       targetType: "frontmatter",
+       target: "error",
+       operation: "replace",
+       content: error.message
+     });
+     ```
 
 5. **Recovery options:**
    - User can manually compact and archive later
@@ -310,9 +423,26 @@ When archive verification fails:
    - Revert session status to "active"
    - Add frontmatter.archive_error = "Verification failed"
 
-4. Update the original session note using MCP `update_note`:
-   - Restore status to "active"
-   - Add error field
+4. Update the original session note using MCP edit tool:
+   ```javascript
+   mcp__obsidian-vault__edit({
+     action: "patch",
+     path: sessionPath,
+     targetType: "frontmatter",
+     target: "status",
+     operation: "replace",
+     content: "active"
+   });
+
+   mcp__obsidian-vault__edit({
+     action: "patch",
+     path: sessionPath,
+     targetType: "frontmatter",
+     target: "archive_error",
+     operation: "replace",
+     content: "Verification failed"
+   });
+   ```
 
 5. Throw error to halt session end process:
    - "Archive failed - session preserved at original location"

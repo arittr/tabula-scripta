@@ -26,13 +26,21 @@ Ask user permission before writing in these scenarios:
 
 ### Memory Spam Prevention
 
-**Critical:** Limit memory writes to fewer than 5 per hour-long session to prevent overwhelming the user and cluttering the vault.
+**Trust the triggers:** Memory writes are naturally throttled by the selectivity of automatic triggers. Don't impose arbitrary limits.
 
-**Implementation:**
-- Track write operations per session
-- If approaching limit, prioritize most important updates
-- Batch related updates into single write operation
-- Ask user: "I have several memory updates pending. Should I write them now or wait until session end?"
+**Natural rate limiting:**
+- Automatic triggers only fire after meaningful events (code reviews, debugging completions, architectural decisions)
+- Periodic checkpoints are already spaced 30-60 minutes apart
+- Session-end compaction consolidates session notes into entities
+
+**Batching strategy:**
+- When multiple related entities need updates (e.g., after code review touching 3 components), batch into a single operation
+- Group related changes to avoid redundant MCP calls
+- Example: Update [[Component A]], [[Component B]], [[Component C]] in parallel, not sequentially
+
+**User control:**
+- Users can always disable memory features if they find them intrusive
+- For subjective content (preferences, contradictions), still ask permission before writing
 
 ## Memory Granularity
 
