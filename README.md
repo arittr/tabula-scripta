@@ -1,5 +1,8 @@
 # Tabula Scripta
 
+>[!WARNING]
+>early alpha!
+
 > Working memory for Claude Code - never lose context between sessions
 
 [![Install](https://img.shields.io/badge/install-arittr%2Ftabula--scripta-5B3FFF?logo=claude)](https://github.com/arittr/tabula-scripta#installation--quick-start)
